@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include "EspNowRcLink/Transmitter.h"
-//#include "ppm.h"
+#include "ppm.h"
 #include <Preferences.h>
 #include "Shell.h"
 //https://docs.espressif.com/projects/esp-faq/en/latest/application-solution/esp-now.html
@@ -9,7 +9,7 @@
 #define send_gap 20 * 1000 //micro scond
 
 // uncomment to use ppm on pin 13
-//#define PPM_PIN 13
+#define PPM_PIN 36
 
 Preferences preferences;
 
@@ -50,8 +50,7 @@ int mac(int argc, char** argv){
   return SHELL_RET_SUCCESS;
 }
 
-void setup()
-{
+void setup(){
   Serial.begin(115200);
 
   preferences.begin("pair_data", false);
@@ -73,15 +72,24 @@ void setup()
 }
 
 long next_send = 0;
-void loop()
-{
+void loop(){
   shell_task();
   if(next_send < micros()){
+#ifdef PPM_PIN
+    if(ppm.available()){
+      for(size_t c = 0; c < 8; c++){
+        const int16_t val = ppm.get(c);
+        tx.setChannel(c, val);
+      }
+      tx.commit();
+    }
+#else
     tx.setChannel(0, map(analogRead(32), 0, 4096, 880, 2120));
     tx.setChannel(1, map(analogRead(33), 0, 4096, 880, 2120));
     tx.setChannel(2, map(analogRead(35), 0, 4096, 880, 2120));
     tx.setChannel(3, map(analogRead(34), 0, 4096, 880, 2120));
     tx.commit();
+#endif
     next_send = micros() + send_gap;
   }
   tx.update();
